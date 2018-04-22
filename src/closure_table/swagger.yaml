@@ -1,0 +1,260 @@
+swagger: "2.0"
+
+info:
+  version: 1.0.0
+  title: Comments
+  description: Comments API
+
+host: localhost:8080
+
+consumes:
+  - application/json
+produces:
+  - application/json
+
+definitions:
+  commentId:
+    type: integer
+    description: the id of the comment
+    example: 123456
+
+  comment:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: the id of the comment
+      content:
+        type: string
+        description: comment text
+        example: Comment content
+
+  commentTree:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: the id of the comment
+      parent_id:
+        type: integer
+        description: the id of the parent comment (null for root comment)
+      content:
+        type: string
+        description: comment text
+        example: Comment content
+      children:
+        type: array
+        items:
+          $ref: "#/definitions/commentTree"
+
+  error:
+    type: object
+    required:
+      - error
+    properties:
+      error:
+        type: string
+        description: An error message
+        example: An error occured
+
+parameters:
+  authToken:
+    name: X-Auth-Token
+    in: header
+    description: An authorization token
+    required: false
+    type: string
+
+  commentContent:
+    name: text
+    in: path
+    description: Content of the comment
+    required: true
+    type: string
+
+  commentId:
+    name: id
+    in: path
+    description: Id of the comment
+    required: true
+    type: integer
+
+paths:
+  /auth/login:
+    post:
+      summary: Logs user in
+      operationId: authLogin
+      tags:
+        - auth
+      parameters:
+        - name: credentials
+          in: body
+          description: The user's credentials
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+                example: username@email.com
+              password:
+                type: string
+                example: "123"
+      responses:
+        default:
+          description: Returns the auth token
+          schema:
+            type: object
+            required:
+              - token
+              - expired
+            properties:
+              token:
+                description: The valid auth token
+                type: string
+              expired:
+                description: Auth token expiration date
+                type: date-time
+        400:
+          description: Invalid credentials
+          schema:
+            $ref: "#/definitions/error"
+
+  /comments:
+    get:
+      summary: Returns a list of the root comments
+      operationId: getRootComments
+      tags:
+        - comments
+      responses:
+        default:
+          description: A list of the root comments without parent-child relations info
+          schema:
+            type: object
+            properties:
+              comments:
+                type: array
+                items:
+                  $ref: "#/definitions/comment"
+
+    post:
+      summary: Creates a new comment
+      operationId: createComment
+      tags:
+        - comments
+      parameters:
+        - $ref: "#/parameters/authToken"
+        - name: comment
+          in: body
+          description: The comment to create
+          required: true
+          schema:
+            type: object
+            required:
+              - content
+            properties:
+              parent_id:
+                type: integer
+                description: the id of the parent comment (null for the root comment)
+              content:
+                type: string
+                description: comment text
+                example: New comment
+      responses:
+        default:
+          description: Returns an id of the newly-created comment
+          schema:
+            $ref: "#/definitions/commentId"
+        400:
+          description: Invalid params
+
+  /comments/{id}:
+    parameters:
+      - $ref: "#/parameters/commentId"
+
+    get:
+      summary: Returns the comment tree
+      operationId: getComment
+      tags:
+        - comments
+      responses:
+        default:
+          description: The comment
+          schema:
+            $ref: "#/definitions/commentTree"
+        404:
+          description: Comment not found
+
+    patch:
+      summary: Updates an existing comment
+      operationId: updateComment
+      tags:
+        - comments
+      parameters:
+        - $ref: "#/parameters/authToken"
+        - name: content
+          in: body
+          description: The updated comment
+          required: true
+          schema:
+            type: object
+            required:
+              - content
+            properties:
+              content:
+                type: string
+                description: comment text
+                example: Updated comment
+      responses:
+        default:
+          description: Returns number of the updated comments
+          schema:
+            type: object
+            properties:
+              updated:
+                type: integer
+                description: The number of the updated comments
+                example: 1
+        400:
+          description: Invalid params
+
+    delete:
+      summary: Deletes the comment
+      operationId: deleteComment
+      tags:
+        - comments
+      parameters:
+        - $ref: "#/parameters/authToken"
+      responses:
+        default:
+          description: Returns the number of the deleted comments
+          schema:
+            type: object
+            properties:
+              deleted:
+                type: integer
+                description: The number of the deleted comments
+                example: 2
+
+  /comments/search/{text}:
+    parameters:
+      - $ref: "#/parameters/commentContent"
+
+    get:
+      summary: A full-text comment search
+      operationId: commentSearch
+      tags:
+        - comments
+      responses:
+        default:
+          description: A list of the matching comments
+          schema:
+            type: object
+            properties:
+              comments:
+                type: array
+                items:
+                  $ref: "#/definitions/comment"
